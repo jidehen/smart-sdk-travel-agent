@@ -139,38 +139,6 @@ def create_agent(tools: List[Any]) -> SMARTLLMAgent:
         reflect_on_tool_use=True
     )
 
-async def handle_websocket(websocket, agent: SMARTLLMAgent):
-    """
-    Handle WebSocket communication with the frontend.
-    
-    Args:
-        websocket: The WebSocket connection
-        agent: The configured agent
-    """
-    try:
-        async for message in websocket:
-            logger.info(f"Received message from client: {message}")
-            
-            try:
-                # Process the message using the agent
-                response = await agent.run(
-                    task=message,
-                    cancellation_token=CancellationToken()
-                )
-                
-                # Send the response back to the client
-                await websocket.send(response)
-                
-            except Exception as e:
-                error_msg = f"Error processing message: {str(e)}"
-                logger.error(error_msg, exc_info=True)
-                await websocket.send(f"Error: {error_msg}")
-                
-    except websockets.exceptions.ConnectionClosed:
-        logger.info("WebSocket connection closed")
-    except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}", exc_info=True)
-
 async def start_websocket_server(agent: SMARTLLMAgent):
     """
     Start the WebSocket server.
@@ -178,14 +146,77 @@ async def start_websocket_server(agent: SMARTLLMAgent):
     Args:
         agent: The configured agent
     """
-    server = await websockets.serve(
-        lambda ws, path: handle_websocket(ws, agent),
-        WS_HOST,
-        WS_PORT
-    )
-    
-    logger.info(f"WebSocket server started on ws://{WS_HOST}:{WS_PORT}")
-    await server.wait_closed()
+    try:
+        logger.info(f"Starting WebSocket server on ws://{WS_HOST}:{WS_PORT}")
+        
+        # Create the server with a proper handler
+        async def handler(websocket):
+            client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+            logger.info(f"New WebSocket connection established from {client_info}")
+            
+            try:
+                async for message in websocket:
+                    logger.info(f"Received message from {client_info}: {message}")
+                    
+                    try:
+                        # Process the message using the agent
+                        logger.info(f"Processing message from {client_info} using agent")
+                        
+                        # Stream the response directly from the agent
+                        async for chunk in agent.run_stream(
+                            task=message,
+                            cancellation_token=CancellationToken()
+                        ):
+                            if chunk:
+                                try:
+                                    # Convert chunk to string and send
+                                    chunk_str = str(chunk)
+                                    await websocket.send(chunk_str)
+                                    logger.debug(f"Sent chunk to {client_info}: {chunk_str}")
+                                except Exception as e:
+                                    logger.error(f"Error sending chunk: {str(e)}")
+                                    break
+                        
+                        logger.info(f"Response processing completed for {client_info}")
+                        
+                    except Exception as e:
+                        error_msg = f"Error processing message from {client_info}: {str(e)}"
+                        logger.error(error_msg, exc_info=True)
+                        try:
+                            await websocket.send(f"Error: {error_msg}")
+                            logger.info(f"Error message sent to {client_info}")
+                        except websockets.exceptions.ConnectionClosed:
+                            logger.error(f"Failed to send error message to {client_info} - connection closed")
+                            break
+                    
+            except websockets.exceptions.ConnectionClosed as e:
+                logger.info(f"WebSocket connection closed for {client_info}: code={e.code}, reason={e.reason}")
+            except Exception as e:
+                logger.error(f"WebSocket error for {client_info}: {str(e)}", exc_info=True)
+            finally:
+                logger.info(f"WebSocket connection handler finished for {client_info}")
+
+        # Start the server
+        async with websockets.serve(
+            handler,
+            WS_HOST,
+            WS_PORT,
+            ping_interval=20,  # Send ping every 20 seconds
+            ping_timeout=10,   # Wait 10 seconds for pong response
+            close_timeout=10   # Wait 10 seconds for close handshake
+        ) as server:
+            logger.info(f"WebSocket server started successfully on ws://{WS_HOST}:{WS_PORT}")
+            logger.info("Server configuration:")
+            logger.info(f"- Ping interval: 20 seconds")
+            logger.info(f"- Ping timeout: 10 seconds")
+            logger.info(f"- Close timeout: 10 seconds")
+            
+            # Keep the server running
+            await asyncio.Future()  # Run forever
+            
+    except Exception as e:
+        logger.error(f"Failed to start WebSocket server: {str(e)}", exc_info=True)
+        raise
 
 async def main() -> None:
     """Main entry point for the application."""
