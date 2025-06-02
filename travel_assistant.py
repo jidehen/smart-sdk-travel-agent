@@ -17,13 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 TOKEN_URL = "https://agents-hub.dev.aws.jpmchase.net/smart-runtime/v1/utility/token"
-DEFAULT_USER_SID = "D649217"
-MODEL_CONFIG = {
-    "model": "o3-mini-2025-01-31",
-    "api_version": None,  # Will be set from response
-    "azure_endpoint": None,  # Will be set from response
-    "azure_deployment": None  # Will be set from response
-}
+DEFAULT_USER_SID = "TempSID"
 
 # MCP Server Paths
 BASE_DIR = Path(__file__).parent.parent
@@ -68,7 +62,7 @@ def create_model_client(model_details: Dict[str, Any]) -> AzureOpenAIChatComplet
     logger.debug("Creating model client with retrieved configuration")
     return AzureOpenAIChatCompletionClient(
         azure_deployment=model_details["model"],
-        model=MODEL_CONFIG["model"],
+        model=model_details["model"],
         api_version=model_details["api_version"],
         azure_endpoint=model_details["base_url"],
         api_key=model_details["api_key"],
