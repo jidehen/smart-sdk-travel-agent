@@ -43,6 +43,11 @@ source /Users/<SID>/virtualenvs/<venv name>/bin/activate
 pip install -r requirements.txt
 ```
 
+4. Start the LLM:
+```bash
+python travel_assistant.py
+```
+
 ## Project Structure
 
 ```
