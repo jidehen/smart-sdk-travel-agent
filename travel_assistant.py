@@ -7,6 +7,8 @@ from smart_sdk.agents import SMARTLLMAgent
 from smart_sdk import CancellationToken, Console
 from smart_sdk.model import AzureOpenAIChatCompletionClient
 from pathlib import Path
+import websockets
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 # Constants
 TOKEN_URL = "https://agents-hub.dev.aws.jpmchase.net/smart-runtime/v1/utility/token"
 DEFAULT_USER_SID = "TempSID"
+WS_HOST = "localhost"
+WS_PORT = 5000
 
 # MCP Server Paths
 BASE_DIR = Path(__file__).parent
@@ -135,57 +139,53 @@ def create_agent(tools: List[Any]) -> SMARTLLMAgent:
         reflect_on_tool_use=True
     )
 
-async def process_user_input(agent: SMARTLLMAgent, user_input: str) -> None:
+async def handle_websocket(websocket, agent: SMARTLLMAgent):
     """
-    Process user input and generate response using the agent.
+    Handle WebSocket communication with the frontend.
     
     Args:
+        websocket: The WebSocket connection
         agent: The configured agent
-        user_input: The user's input text
     """
     try:
-        logger.info(f"Processing user input: {user_input}")
-        await Console(agent.run_stream(
-            task=user_input,
-            cancellation_token=CancellationToken()
-        ))
+        async for message in websocket:
+            logger.info(f"Received message from client: {message}")
+            
+            try:
+                # Process the message using the agent
+                response = await agent.run(
+                    task=message,
+                    cancellation_token=CancellationToken()
+                )
+                
+                # Send the response back to the client
+                await websocket.send(response)
+                
+            except Exception as e:
+                error_msg = f"Error processing message: {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                await websocket.send(f"Error: {error_msg}")
+                
+    except websockets.exceptions.ConnectionClosed:
+        logger.info("WebSocket connection closed")
     except Exception as e:
-        logger.error(f"Error processing user input: {str(e)}", exc_info=True)
-        print(f"An error occurred: {str(e)}")
+        logger.error(f"WebSocket error: {str(e)}", exc_info=True)
 
-async def run_conversation_loop(agent: SMARTLLMAgent) -> None:
+async def start_websocket_server(agent: SMARTLLMAgent):
     """
-    Run the main conversation loop.
+    Start the WebSocket server.
     
     Args:
         agent: The configured agent
     """
-    print("\nWelcome to the Travel Assistant!")
-    print("I can help you plan your travel and optimize your payment methods.")
-    print("Type 'exit' or 'quit' to end the conversation.")
-    print("\nExample queries:")
-    print("- Search for flights from New York to London")
-    print("- What payment methods do I have available?")
-    print("- Which card should I use for my flight purchase?")
-    print("- Compare the benefits of my cards for travel purchases")
+    server = await websockets.serve(
+        lambda ws, path: handle_websocket(ws, agent),
+        WS_HOST,
+        WS_PORT
+    )
     
-    while True:
-        try:
-            user_input = input("\nUser: ").strip()
-            if not user_input:
-                continue
-                
-            if user_input.lower() in ["exit", "quit"]:
-                logger.info("User requested to end conversation")
-                print("Ending conversation.")
-                break
-                
-            await process_user_input(agent, user_input)
-            
-        except KeyboardInterrupt:
-            logger.info("Received keyboard interrupt")
-            print("\nEnding conversation.")
-            break
+    logger.info(f"WebSocket server started on ws://{WS_HOST}:{WS_PORT}")
+    await server.wait_closed()
 
 async def main() -> None:
     """Main entry point for the application."""
@@ -193,7 +193,9 @@ async def main() -> None:
         logger.info("Starting Travel Assistant application")
         tools = await setup_mcp_servers()
         agent = create_agent(tools)
-        await run_conversation_loop(agent)
+        
+        # Start WebSocket server instead of console loop
+        await start_websocket_server(agent)
                 
     except Exception as e:
         logger.error(f"Application error: {str(e)}", exc_info=True)

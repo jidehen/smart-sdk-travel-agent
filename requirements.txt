@@ -4,6 +4,7 @@ cdaosmart-sdk[mcp]==0.0.8
 httpx>=0.24.0
 pydantic>=2.0.0
 langchain-experimental==0.3.4
+websockets>=12.0
 
 # Logging and utilities
 python-json-logger>=2.0.0
