@@ -11,7 +11,7 @@ An intelligent travel assistant that helps users plan their travel and optimize 
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.12
 - SmartSDK access
 - Access to MCP servers:
   - Chase Travel MCP
@@ -26,31 +26,32 @@ git clone https://github.com/jidehen/smart-sdk-travel-agent.git
 cd smart-sdk-travel-agent
 ```
 
-2. Install dependencies:
+2. Create and activate a virtual environment:
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
-
-Run the travel assistant:
-```bash
-python travel_assistant.py
-```
-
-Example queries:
-- "Search for flights from New York to London"
-- "What payment methods do I have available?"
-- "Which card should I use for my flight purchase?"
-- "Compare the benefits of my cards for travel purchases"
-
 ## Project Structure
 
 ```
-smart-sdk-agent/
-├── travel_assistant.py    # Main agent implementation
-├── requirements.txt       # Project dependencies
-└── README.md             # Project documentation
+smart-sdk-travel-agent/
+├── benefits-mcp/         # Benefits MCP server
+├── chase-travel-mcp/     # Chase Travel MCP server
+├── safepay-wallet-mcp/   # SafePay Wallet MCP server
+├── requirements.txt      # Project dependencies
+└── README.md            # Project documentation
 ```
 
 ## Dependencies

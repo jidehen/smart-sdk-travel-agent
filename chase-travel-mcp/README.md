@@ -12,7 +12,7 @@ This MCP server provides flight search capabilities with the following features:
 
 ## Prerequisites
 
-- Python 3.x
+- Python 3.12
 - FastMCP package
 
 ## Installation
@@ -21,13 +21,6 @@ This MCP server provides flight search capabilities with the following features:
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt
-```
-
-## Usage
-
-Start the server:
-```bash
-python server/chase_travel_mcp_server.py
 ```
 
 ### Available Tools

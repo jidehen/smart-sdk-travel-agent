@@ -22,20 +22,6 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Running the Server
-
-Start the server:
-```bash
-python server/benefits_mcp_server.py
-```
-
-## Testing
-
-Run the test script:
-```bash
-python test_benefits_mcp.py
-```
-
 ## Available Cards
 
 The server includes mock data for the following Chase cards:
