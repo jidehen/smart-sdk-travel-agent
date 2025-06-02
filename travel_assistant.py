@@ -20,7 +20,7 @@ TOKEN_URL = "https://agents-hub.dev.aws.jpmchase.net/smart-runtime/v1/utility/to
 DEFAULT_USER_SID = "TempSID"
 
 # MCP Server Paths
-BASE_DIR = Path(__file__).parent.parent
+BASE_DIR = Path(__file__).parent
 CHASE_TRAVEL_MCP = BASE_DIR / "chase-travel-mcp" / "server" / "chase_travel_mcp_server.py"
 BENEFITS_MCP = BASE_DIR / "benefits-mcp" / "server" / "benefits_mcp_server.py"
 SAFEPAY_WALLET_MCP = BASE_DIR / "safepay-wallet-mcp" / "server" / "safepay_wallet_mcp_server.py"
