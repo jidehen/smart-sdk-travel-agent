@@ -20,12 +20,6 @@ An intelligent travel assistant that helps users plan their travel and optimize 
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/jidehen/smart-sdk-travel-agent.git
-cd smart-sdk-travel-agent
-```
-
 2. Create and activate a virtual environment:
 ```bash
 # Create virtual environment
@@ -38,12 +32,24 @@ venv\Scripts\activate
 source /Users/<SID>/virtualenvs/<venv name>/bin/activate
 ```
 
-3. Install dependencies:
+3. Install backend dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Start the LLM:
+4. Set up and run the frontend:
+```bash
+# Navigate to the frontend directory
+cd frontend
+
+# Install frontend dependencies
+npm install
+
+# Start the frontend development server
+npm start
+```
+
+5. Start the backend LLM:
 ```bash
 python travel_assistant.py
 ```
