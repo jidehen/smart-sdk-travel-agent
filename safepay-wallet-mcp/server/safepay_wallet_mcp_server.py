@@ -65,20 +65,33 @@ class PaymentMethodError(Exception):
 @mcp.tool()
 async def get_payment_methods(user_id: str) -> Dict[str, Any]:
     """
-    Retrieve available payment methods for a user.
-    
+    Retrieves the list of available payment methods for a specific user.
+    Provides details for each payment method, including card ID, type, brand, last four digits, and nickname.
+
     Args:
-        user_id: Unique identifier for the user (e.g., 'user1')
-    
+        user_id: The unique identifier (string) for the user whose payment methods are being requested (e.g., 'user1'). This is a required parameter.
+
     Returns:
-        Dict containing:
-        - payment_methods: List of payment methods with card details
-        - request_id: Unique identifier for the request
-        - timestamp: Request timestamp
-    
-    Example request:
+        A dictionary containing the user's payment methods.
+        - 'payment_methods': A list of dictionaries, where each dictionary represents a payment method with keys like 'card_id', 'type', 'brand', 'last4', and 'nickname'.
+        - 'request_id': A unique identifier for this request.
+        - 'timestamp': The timestamp when the request was processed.
+
+    Raises:
+        PaymentMethodError: If the request fails due to an invalid user ID (user not found) or internal errors.
+
+    Example Conversation:
+        User: What payment methods do I have on file?
+        Assistant: (Calls get_payment_methods with appropriate parameters like user_id='user1')
+
+    Example Response (simplified):
         {
-            "user_id": "user1"
+            "payment_methods": [
+                {"card_id": "card_001", "type": "credit", "brand": "Chase Freedom", "last4": "1234", "nickname": "Freedom Card"},
+                // ... other payment methods
+            ],
+            "request_id": "...",
+            "timestamp": "..."
         }
     """
     request_id = datetime.now().strftime("%Y%m%d_%H%M%S")

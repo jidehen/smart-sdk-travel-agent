@@ -106,7 +106,12 @@ async def setup_mcp_servers() -> List[Any]:
     for server in [chase_travel_server, benefits_server, safepay_wallet_server]:
         server_tools = await mcp_server_tools(server)
         tools.extend(server_tools)
-    
+
+    logger.info(f"Loaded {len(tools)} tools from MCP servers.")
+    for i, tool in enumerate(tools):
+        logger.info(f"Tool {i+1}: Name={tool.name}, Description={tool.description}")
+        # You might want to log tool.parameters as well, but that can be verbose
+
     return tools
 
 def create_agent(tools: List[Any]) -> SMARTLLMAgent:
@@ -126,14 +131,18 @@ def create_agent(tools: List[Any]) -> SMARTLLMAgent:
     return SMARTLLMAgent(
         name="TravelAssistant",
         description="An intelligent assistant for travel planning and payment optimization",
-        system_message="""You are a helpful travel assistant specialized in helping users plan their travel and optimize their payment methods. 
-        You can:
-        1. Search for flights between cities
-        2. Check available payment methods for users
-        3. Compare card benefits and rewards
-        4. Help users choose the best payment method for their travel purchases
-        
-        Always provide clear explanations for your recommendations and consider both the travel options and payment benefits when making suggestions.""",
+        system_message="""You are a helpful and thorough travel assistant specialized in planning travel and optimizing payment methods. You have access to several tools to help users.
+
+Here are your capabilities and how to use them:
+1.  **Search for flights:** Use the flight search tool when the user asks to find flights between cities for a specific date.
+2.  **Check payment methods and benefits:** Use the payment and benefits tools when the user asks about payment options, card benefits, or optimizing payments for travel.
+
+When a user asks a question:
+-   First, analyze the request to see if it requires information that can be obtained using your tools.
+-   If the request involves multiple steps that require different tools (e.g., finding flights AND suggesting payment methods), break it down and use the tools sequentially. Use the results from the first tool call to inform the next step or your final answer.
+-   If a tool requires specific information (like origin, destination, date for flights) and the user hasn't provided it, ask the user clearly and concisely for the missing details. Do not guess or make assumptions.
+-   Once you have used the necessary tools, synthesize the results into a helpful and clear response for the user.
+""",
         model_client=model_client,
         tools=tools,
         reflect_on_tool_use=True

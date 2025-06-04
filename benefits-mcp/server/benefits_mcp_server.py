@@ -259,24 +259,39 @@ async def get_card_benefits(request: CardBenefitsRequest) -> CardBenefitsRespons
 @mcp.tool()
 async def get_card_benefits(card_ids: List[str]) -> Dict[str, Any]:
     """
-    Retrieve benefits for specified credit cards.
-    
+    Retrieves detailed benefits information for a list of specified credit cards.
+    Provides details on annual fees, points multipliers for different categories, card perks, and point value.
+
     Args:
-        card_ids: List of card identifiers to get benefits for (e.g., ['freedom', 'sapphire'])
-    
+        card_ids: A list of strings, where each string is the unique identifier (ID) of a credit card (e.g., ['freedom', 'sapphire_preferred']). At least one card ID is required.
+
     Returns:
-        Dict containing:
-        - benefits: List of card benefits with details
-        - request_id: Unique identifier for the request
-        - timestamp: Request timestamp
-    
-    Example request:
+        A dictionary containing the benefits information for the requested cards.
+        - 'cards': A list of dictionaries, where each dictionary represents a card with keys like 'card_id', 'card_name', 'annual_fee', 'multipliers' (a list of multiplier dictionaries), 'perks' (a list of perk dictionaries), and 'point_value'.
+
+    Raises:
+        CardBenefitsError: If the request fails due to invalid input (e.g., missing required card IDs, or if any provided card ID is not found), or internal errors.
+
+    Example Conversation:
+        User: What are the benefits of the Chase Sapphire Preferred card?
+        Assistant: (Calls get_card_benefits with appropriate parameters like card_ids=['sapphire_preferred'])
+
+    Example Response (simplified):
         {
-            "card_ids": ["freedom", "sapphire"]
+            "cards": [
+                {
+                    "card_id": "sapphire_preferred",
+                    "card_name": "Chase Sapphire Preferred",
+                    "annual_fee": 95.0,
+                    "multipliers": [...],
+                    "perks": [...],
+                    "point_value": 1.25
+                }
+            ]
         }
     """
     request_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger.info(f"[{request_id}] Retrieving benefits for cards: {card_ids}")
+    logger.info(f"[{request_id}] Received request for card benefits: {card_ids}")
     
     try:
         if not card_ids:
@@ -294,7 +309,7 @@ async def get_card_benefits(card_ids: List[str]) -> Dict[str, Any]:
                 logger.warning(f"[{request_id}] Card not found: {card_id}")
                 
         response = {
-            "benefits": benefits,
+            "cards": benefits,
             "request_id": request_id,
             "timestamp": datetime.now().isoformat()
         }

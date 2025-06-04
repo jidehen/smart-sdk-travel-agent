@@ -116,33 +116,42 @@ async def search_flights(
     cabin_class: str = "ECONOMY"
 ) -> Dict[str, Any]:
     """
-    Search for available flights between two airports.
-    
+    Searches for available flights between two specified airports on a given departure date.
+    Optionally supports specifying a return date, number of passengers by type (adults, children, infants), and desired cabin class.
+
     Args:
-        origin: IATA airport code for departure (e.g., 'JFK', 'LAX')
-        destination: IATA airport code for arrival (e.g., 'LHR', 'CDG')
-        departure_date: Departure date in YYYY-MM-DD format
-        return_date: Optional return date in YYYY-MM-DD format
-        passengers: Optional dict with keys 'adults' (1-9), 'children' (0-9), 'infants' (0-9)
-        cabin_class: Desired cabin class (ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST)
-    
+        origin: The three-letter IATA airport code for the departure location (e.g., 'JFK', 'LAX'). This is a required parameter.
+        destination: The three-letter IATA airport code for the arrival location (e.g., 'LHR', 'CDG'). This is a required parameter.
+        departure_date: The desired date of departure in YYYY-MM-DD format. This is a required parameter.
+        return_date: Optional. The desired date of return in YYYY-MM-DD format. Required for round trips.
+        passengers: Optional. A dictionary specifying the number of passengers by type. Keys should be 'adults' (integer, 1-9), 'children' (integer, 0-9), and 'infants' (integer, 0-9). Defaults to 1 adult if not specified.
+        cabin_class: Optional. The preferred cabin class for the flight search. Valid values are 'ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', and 'FIRST'. Defaults to 'ECONOMY'.
+
     Returns:
-        Dict containing:
-        - flights: List of available flights with airline, flight number, times, and price
-        - request_id: Unique identifier for the search request
-        - timestamp: Request timestamp
-    
-    Example request:
+        A dictionary containing the search results.
+        - 'flights': A list of dictionaries, where each dictionary represents an available flight with details like airline, flight number, departure time, arrival time, price, and class.
+        - 'request_id': A unique identifier for this search request.
+        - 'timestamp': The timestamp when the request was processed.
+
+    Raises:
+        TravelSearchError: If the search fails due to invalid input (e.g., missing required parameters), no flights found for the route, or internal errors.
+
+    Example Conversation:
+        User: Find me a flight from New York to London tomorrow.
+        Assistant: (Calls search_flights with appropriate parameters like origin='JFK', destination='LHR', departure_date='YYYY-MM-DD')
+
+    Example Response (simplified):
         {
-            "origin": "JFK",
-            "destination": "LHR",
-            "departure_date": "2024-03-20",
-            "passengers": {"adults": 2},
-            "cabin_class": "ECONOMY"
+            "flights": [
+                {"airline": "British Airways", "flight_number": "BA178", "departure_time": "10:00", "arrival_time": "22:00", "price": 800.0, "class": "economy"},
+                // ... other flight results
+            ],
+            "request_id": "...",
+            "timestamp": "..."
         }
     """
     request_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger.info(f"[{request_id}] Received flight search request: {origin} -> {destination}")
+    logger.info(f"[{request_id}] Received flight search request: {origin} -> {destination}, Date: {departure_date}")
     
     try:
         flights = search_flights_internal(origin, destination)
