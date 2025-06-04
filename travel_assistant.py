@@ -28,6 +28,7 @@ BASE_DIR = Path(__file__).parent
 CHASE_TRAVEL_MCP = BASE_DIR / "chase-travel-mcp" / "server" / "chase_travel_mcp_server.py"
 BENEFITS_MCP = BASE_DIR / "benefits-mcp" / "server" / "benefits_mcp_server.py"
 SAFEPAY_WALLET_MCP = BASE_DIR / "safepay-wallet-mcp" / "server" / "safepay_wallet_mcp_server.py"
+CHECKOUT_MCP = BASE_DIR / "checkout-mcp" / "server" / "checkout_mcp_server.py"
 
 class ModelClientError(Exception):
     """Custom exception for model client errors."""
@@ -100,10 +101,17 @@ async def setup_mcp_servers() -> List[Any]:
         command="python",
         args=[str(SAFEPAY_WALLET_MCP)]
     )
+
+    # Configure the new checkout MCP server
+    checkout_server = StdioServerParams(
+        command="python",
+        args=[str(CHECKOUT_MCP)]
+    )
     
     logger.info("Initializing MCP server tools")
     tools = []
-    for server in [chase_travel_server, benefits_server, safepay_wallet_server]:
+    # Include the new checkout server in the list
+    for server in [chase_travel_server, benefits_server, safepay_wallet_server, checkout_server]:
         server_tools = await mcp_server_tools(server)
         tools.extend(server_tools)
 
