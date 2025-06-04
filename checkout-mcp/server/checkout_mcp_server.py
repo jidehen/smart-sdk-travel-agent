@@ -1,16 +1,16 @@
 import logging
+from typing import Dict, Any, Optional
 import sys
 from pathlib import Path
 import json
-from typing import Dict, Any, Optional
-import asyncio
-import httpx # Assuming httpx is available for making HTTP requests
+from datetime import datetime
 
-# Add the parent directory to Python path (assuming checkout-mcp is at the same level as travel-assistant)
+# Add the parent directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# We might need to import FastMCP depending on how the SDK is structured, let's assume it's available
 from mcp.server.fastmcp import FastMCP
+from model.checkout_request import CheckoutRequest
+from model.checkout_response import CheckoutResponse
 
 # Configure logging
 logging.basicConfig(
@@ -19,11 +19,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Mock data for testing
+MOCK_FLIGHTS = {
+    "FL123": {"origin": "JFK", "destination": "LAX", "price": 299.99},
+    "FL456": {"origin": "SFO", "destination": "ORD", "price": 199.99},
+}
+
+MOCK_PAYMENT_METHODS = {
+    "PM789": {"type": "credit_card", "last4": "1234"},
+    "PM012": {"type": "debit_card", "last4": "5678"},
+}
+
 # Initialize FastMCP server
 mcp = FastMCP("Checkout")
-
-# Define the base URL for the external service based on the Postman screenshot
-BASE_SERVICE_URL = "https://safepay-partner-experience-service-mock-qa.dev.aws.jpmchase.net"
 
 class CheckoutError(Exception):
     """Custom exception for checkout errors."""
@@ -35,135 +43,96 @@ class CheckoutError(Exception):
 
 @mcp.tool()
 async def initiate_checkout(
-    departureAirportCode: str,
-    destinationAirportCode: str,
-    departureDate: str,
-    arrivalDate: str,
-    numberOfPassengers: int,
-    paymentMethod: str
+    flight_id: str,
+    payment_method_id: str,
+    user_confirmation: bool = False
 ) -> Dict[str, Any]:
     """
-    Initiates the flight checkout process, reserves the booking, prompts the user for confirmation, and then confirms the booking upon user approval.
-
+    Initiates a checkout process for a flight reservation.
+    
+    This tool handles a two-step checkout process:
+    1. Reserve the flight (holds the flight for a short period)
+    2. Confirm the reservation (finalizes the booking)
+    
+    The tool will first check if the flight and payment method exist,
+    then create a reservation. If user_confirmation is True, it will
+    also confirm the reservation.
+    
     Args:
-        departureAirportCode: The IATA airport code for the departure location (e.g., 'JFK').
-        destinationAirportCode: The IATA airport code for the arrival location (e.g., 'EWR').
-        departureDate: The departure date and time (e.g., '2025-06-04T00:00:00.000Z').
-        arrivalDate: The arrival date and time (e.g., '2025-06-05T00:00:00.000Z').
-        numberOfPassengers: The total number of passengers (integer).
-        paymentMethod: Identifier for the payment method to use (e.g., '....1111').
-
+        flight_id: ID of the flight to book
+        payment_method_id: ID of the payment method to use
+        user_confirmation: Whether to confirm the reservation immediately
+    
     Returns:
-        A dictionary containing the final booking status and details.
-        - 'reservationStatus': The status of the booking (e.g., 'CONFIRMED', 'PENDING', 'FAILED').
-        - 'reservationId': The unique identifier for the reservation.
-        - 'message': A human-readable message about the booking status.
-
+        A dictionary containing:
+        - reservation_id: Unique ID for the reservation
+        - status: Current status ("reserved" or "confirmed")
+        - timestamp: When the action was taken
+        - error_message: Any error that occurred (if applicable)
+    
     Raises:
-        CheckoutError: If any step of the checkout process fails.
-
-    Example Conversation:
-        User: Can you book this flight for me using my saved card?
-        Assistant: (Calls initiate_checkout with flight details and payment method ID)
+        CheckoutError: If the flight or payment method is not found, or if other errors occur
     """
-    logger.info("Initiating checkout process...")
-    reservation_id = None
-
+    request_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    logger.info(f"[{request_id}] Processing checkout request: flight_id={flight_id}, payment_method_id={payment_method_id}")
+    
     try:
-        # Step 1: Reserve the booking
-        reserve_url = f"{BASE_SERVICE_URL}/safepay-partner-experience-service-mock-qa/dev.aws.jpmchase.net/travel/reserve"
-        reserve_payload = {
-            "departureAirportCode": departureAirportCode,
-            "destinationAirportCode": destinationAirportCode,
-            "departureDate": departureDate,
-            "arrivalDate": arrivalDate,
-            "numberOfPassengers": numberOfPassengers,
-            "paymentMethod": paymentMethod
-        }
-        logger.info(f"Sending reserve request to: {reserve_url} with payload: {reserve_payload}")
-
-        async with httpx.AsyncClient() as client:
-            reserve_response = await client.post(reserve_url, json=reserve_payload)
-            reserve_response.raise_for_status() # Raise an exception for bad status codes
-
-        reserve_data = reserve_response.json()
-        reservation_id = reserve_data.get("reservationId")
-        reservation_status = reserve_data.get("reservationStatus")
-        reserve_message = reserve_data.get("message")
-
-        logger.info(f"Reserve response: Reservation ID: {reservation_id}, Status: {reservation_status}, Message: {reserve_message}")
-
-        if reservation_status != "PENDING":
-             raise CheckoutError(
-                f"Booking reservation failed with status: {reservation_status}",
-                "RESERVATION_FAILED",
-                {"reservation_id": reservation_id, "status": reservation_status, "message": reserve_message}
-            )
-
-        # Step 2: Prompt user for confirmation (This requires agent interaction - we'll simulate this for now)
-        # In a real scenario, the agent would send a TextMessage asking for confirmation
-        logger.info(f"Booking reserved with ID {reservation_id}. Prompting user for confirmation...")
-        # Simulate waiting for user confirmation. In a real agent, this would involve waiting for the next user message.
-        # For this mock MCP, we'll assume confirmation is always given immediately after reservation.
-        await asyncio.sleep(1) # Simulate a short delay for user confirmation
-        logger.info("Simulating user confirmation received.")
-
-        # Step 3: Confirm the booking
-        confirm_url = f"{BASE_SERVICE_URL}/safepay-partner-experience-service-mock-qa/dev.aws.jpmchase.net/travel/confirm"
-        confirm_payload = {"reservationId": reservation_id}
-        logger.info(f"Sending confirm request to: {confirm_url} with payload: {confirm_payload}")
-
-        async with httpx.AsyncClient() as client:
-            confirm_response = await client.post(confirm_url, json=confirm_payload)
-            confirm_response.raise_for_status() # Raise an exception for bad status codes
-
-        confirm_data = confirm_response.json()
-        confirm_status = confirm_data.get("reservationStatus")
-        confirm_message = confirm_data.get("message")
-
-        logger.info(f"Confirm response: Reservation ID: {reservation_id}, Status: {confirm_status}, Message: {confirm_message}")
-
-        if confirm_status != "CONFIRMED":
+        # Validate flight exists
+        if flight_id not in MOCK_FLIGHTS:
             raise CheckoutError(
-                f"Booking confirmation failed with status: {confirm_status}",
-                "CONFIRMATION_FAILED",
-                {"reservation_id": reservation_id, "status": confirm_status, "message": confirm_message}
+                f"Flight {flight_id} not found",
+                "FLIGHT_NOT_FOUND",
+                {
+                    "flight_id": flight_id,
+                    "available_flights": list(MOCK_FLIGHTS.keys())
+                }
             )
-
-        logger.info(f"Booking successfully confirmed with ID {reservation_id}")
-        return {
-            "reservationStatus": confirm_status,
-            "reservationId": reservation_id,
-            "message": confirm_message # This might be null based on screenshot
+            
+        # Validate payment method exists
+        if payment_method_id not in MOCK_PAYMENT_METHODS:
+            raise CheckoutError(
+                f"Payment method {payment_method_id} not found",
+                "PAYMENT_METHOD_NOT_FOUND",
+                {
+                    "payment_method_id": payment_method_id,
+                    "available_methods": list(MOCK_PAYMENT_METHODS.keys())
+                }
+            )
+        
+        # Create reservation
+        reservation_id = f"RES_{request_id}"
+        status = "confirmed" if user_confirmation else "reserved"
+        
+        response = {
+            "reservation_id": reservation_id,
+            "status": status,
+            "timestamp": datetime.now().isoformat()
         }
-
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error during checkout: {e.response.status_code} - {e.response.text}", exc_info=True)
+        
+        logger.info(f"[{request_id}] Successfully processed request. Status: {status}")
+        return response
+        
+    except CheckoutError as e:
+        logger.error(f"[{request_id}] Checkout error: {str(e)}", exc_info=True)
         raise CheckoutError(
-            f"HTTP error during checkout: {e.response.status_code}",
-            "HTTP_ERROR",
+            e.message,
+            e.error_code,
             {
-                "request_id": reservation_id, # Use reservation_id if available
-                "status_code": e.response.status_code,
-                "response_text": e.response.text
+                **e.details,
+                "request_id": request_id,
+                "timestamp": datetime.now().isoformat()
             }
         )
-    except httpx.RequestError as e:
-        logger.error(f"Request error during checkout: {str(e)}", exc_info=True)
-        raise CheckoutError(
-            f"Request error during checkout: {str(e)}",
-            "REQUEST_ERROR",
-            {"request_id": reservation_id, "error": str(e)}
-        )
-    except CheckoutError as e:
-        # Re-raise our custom errors
-        raise e
     except Exception as e:
-        logger.error(f"Unexpected error during checkout: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] Unexpected error: {str(e)}", exc_info=True)
         raise CheckoutError(
-            "An unexpected error occurred during the checkout process",
+            "An unexpected error occurred while processing the request",
             "INTERNAL_ERROR",
-            {"request_id": reservation_id, "error": str(e)}
+            {
+                "request_id": request_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
         )
 
 if __name__ == "__main__":
