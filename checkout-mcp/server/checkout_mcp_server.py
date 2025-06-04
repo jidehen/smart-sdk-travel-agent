@@ -9,8 +9,10 @@ from datetime import datetime
 sys.path.append(str(Path(__file__).parent.parent))
 
 from mcp.server.fastmcp import FastMCP
-from model.checkout_request import CheckoutRequest
-from model.checkout_response import CheckoutResponse
+from model.checkout_request import ReserveRequest
+from model.checkout_response import ReserveResponse
+from model.confirm_request import ConfirmRequest
+from model.confirm_response import ConfirmResponse
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +32,9 @@ MOCK_PAYMENT_METHODS = {
     "PM012": {"type": "debit_card", "last4": "5678"},
 }
 
+# In-memory storage for reservations (for mock purposes)
+RESERVATIONS: Dict[str, Dict[str, Any]] = {}
+
 # Initialize FastMCP server
 mcp = FastMCP("Checkout")
 
@@ -42,78 +47,79 @@ class CheckoutError(Exception):
         super().__init__(self.message)
 
 @mcp.tool()
-async def initiate_checkout(
-    flight_id: str,
-    payment_method_id: str,
-    user_confirmation: bool = False
+async def reserve_flight(
+    departureAirportCode: str,
+    destinationAirportCode: str,
+    departureDate: str,
+    arrivalDate: str,
+    numberOfPassengers: int,
+    paymentMethod: str
 ) -> Dict[str, Any]:
     """
-    Initiates a checkout process for a flight reservation.
+    Initiates a reservation for a flight.
     
-    This tool handles a two-step checkout process:
-    1. Reserve the flight (holds the flight for a short period)
-    2. Confirm the reservation (finalizes the booking)
-    
-    The tool will first check if the flight and payment method exist,
-    then create a reservation. If user_confirmation is True, it will
-    also confirm the reservation.
+    This tool simulates the first step of the checkout process,
+    holding a flight for a short period and returning a pending reservation ID.
     
     Args:
-        flight_id: ID of the flight to book
-        payment_method_id: ID of the payment method to use
-        user_confirmation: Whether to confirm the reservation immediately
-    
+        departureAirportCode: The IATA airport code for the departure location (e.g., 'JFK').
+        destinationAirportCode: The IATA airport code for the arrival location (e.g., 'EWR').
+        departureDate: The departure date and time (e.g., '2025-06-04T00:00:00.000Z').
+        arrivalDate: The arrival date and time (e.g., '2025-06-05T00:00:00.000Z').
+        numberOfPassengers: The total number of passengers (integer).
+        paymentMethod: Identifier for the payment method to use (e.g., '....1111').
+        
     Returns:
-        A dictionary containing:
-        - reservation_id: Unique ID for the reservation
-        - status: Current status ("reserved" or "confirmed")
-        - timestamp: When the action was taken
-        - error_message: Any error that occurred (if applicable)
+        A dictionary containing the reservation details:
+        - reservationId: A unique identifier for the pending reservation.
+        - reservationStatus: The status of the reservation (always 'PENDING' for this step).
+        - message: A human-readable message about the reservation status.
     
     Raises:
-        CheckoutError: If the flight or payment method is not found, or if other errors occur
+        CheckoutError: If the flight or payment method is not found, or if other errors occur.
+        
+    Example Conversation:
+        User: Can you reserve a flight from JFK to LAX tomorrow?
+        Assistant: (Calls reserve_flight with appropriate parameters)
     """
     request_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger.info(f"[{request_id}] Processing checkout request: flight_id={flight_id}, payment_method_id={payment_method_id}")
+    logger.info(f"[{request_id}] Processing flight reservation request: {departureAirportCode} to {destinationAirportCode}")
     
     try:
-        # Validate flight exists
-        if flight_id not in MOCK_FLIGHTS:
-            raise CheckoutError(
-                f"Flight {flight_id} not found",
-                "FLIGHT_NOT_FOUND",
-                {
-                    "flight_id": flight_id,
-                    "available_flights": list(MOCK_FLIGHTS.keys())
-                }
-            )
-            
-        # Validate payment method exists
-        if payment_method_id not in MOCK_PAYMENT_METHODS:
-            raise CheckoutError(
-                f"Payment method {payment_method_id} not found",
-                "PAYMENT_METHOD_NOT_FOUND",
-                {
-                    "payment_method_id": payment_method_id,
-                    "available_methods": list(MOCK_PAYMENT_METHODS.keys())
-                }
+        # Simulate checking flight and payment method existence (simplified)
+        # In a real scenario, you'd validate against actual mock data or external service
+        if not (departureAirportCode and destinationAirportCode and departureDate and paymentMethod):
+             raise CheckoutError(
+                "Missing required reservation details",
+                "MISSING_DETAILS",
+                {}
             )
         
-        # Create reservation
-        reservation_id = f"RES_{request_id}"
-        status = "confirmed" if user_confirmation else "reserved"
-        
-        response = {
-            "reservation_id": reservation_id,
-            "status": status,
-            "timestamp": datetime.now().isoformat()
+        # Simulate creating a pending reservation
+        # reservation_id = f"RES_{request_id}" # Comment out dynamic ID generation
+        reservation_id = "55f0b400-e29b-41d4-a716-446655440000" # Use the hardcoded ID for mock testing
+        RESERVATIONS[reservation_id] = {
+            "departureAirportCode": departureAirportCode,
+            "destinationAirportCode": destinationAirportCode,
+            "departureDate": departureDate,
+            "arrivalDate": arrivalDate,
+            "numberOfPassengers": numberOfPassengers,
+            "paymentMethod": paymentMethod,
+            "reservationStatus": "PENDING",
+            "created_at": datetime.now()
         }
         
-        logger.info(f"[{request_id}] Successfully processed request. Status: {status}")
+        response = {
+            "reservationId": reservation_id,
+            "reservationStatus": "PENDING",
+            "message": f"Reservation {reservation_id} created successfully. Awaiting confirmation."
+        }
+        
+        logger.info(f"[{request_id}] Successfully created pending reservation {reservation_id}")
         return response
         
     except CheckoutError as e:
-        logger.error(f"[{request_id}] Checkout error: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] Reservation error: {str(e)}", exc_info=True)
         raise CheckoutError(
             e.message,
             e.error_code,
@@ -124,9 +130,92 @@ async def initiate_checkout(
             }
         )
     except Exception as e:
-        logger.error(f"[{request_id}] Unexpected error: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] Unexpected error during reservation: {str(e)}", exc_info=True)
         raise CheckoutError(
-            "An unexpected error occurred while processing the request",
+            "An unexpected error occurred during the reservation process",
+            "INTERNAL_ERROR",
+            {
+                "request_id": request_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
+        )
+
+@mcp.tool()
+async def confirm_reservation(
+    reservationId: str
+) -> Dict[str, Any]:
+    """
+    Confirms a pending flight reservation.
+    
+    This tool simulates the second step of the checkout process,
+    finalizing a previously initiated reservation using its ID.
+    
+    Args:
+        reservationId: The unique identifier of the reservation to confirm,
+                       obtained from the reserve_flight tool.
+        
+    Returns:
+        A dictionary containing the confirmation details:
+        - reservationId: The identifier of the confirmed reservation.
+        - reservationStatus: The status of the reservation (always 'CONFIRMED' for this step).
+        - message: A human-readable message about the confirmation status (e.g., a simple receipt).
+    
+    Raises:
+        CheckoutError: If the reservation ID is not found, is not pending, or other errors occur.
+        
+    Example Conversation:
+        User: Yes, please confirm the booking.
+        Assistant: (Uses the reservationId from the previous reserve_flight call and calls confirm_reservation)
+    """
+    request_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    logger.info(f"[{request_id}] Processing reservation confirmation request for ID: {reservationId}")
+    
+    try:
+        # Check if the reservation exists and is pending
+        if reservationId not in RESERVATIONS:
+            raise CheckoutError(
+                f"Reservation ID {reservationId} not found",
+                "RESERVATION_NOT_FOUND",
+                {"reservationId": reservationId}
+            )
+            
+        reservation = RESERVATIONS[reservationId]
+        if reservation["reservationStatus"] != "PENDING":
+             raise CheckoutError(
+                f"Reservation ID {reservationId} is not pending (current status: {reservation['reservationStatus']})",
+                "RESERVATION_NOT_PENDING",
+                {"reservationId": reservationId, "current_status": reservation["reservationStatus"]}
+            )
+            
+        # Simulate confirming the reservation
+        reservation["reservationStatus"] = "CONFIRMED"
+        reservation["confirmed_at"] = datetime.now()
+        
+        response = {
+            "reservationId": reservationId,
+            "reservationStatus": "CONFIRMED",
+            "message": f"Reservation {reservationId} confirmed successfully."
+        }
+        
+        logger.info(f"[{request_id}] Successfully confirmed reservation {reservationId}")
+        return response
+        
+    except CheckoutError as e:
+        logger.error(f"[{request_id}] Confirmation error: {str(e)}", exc_info=True)
+        raise CheckoutError(
+            e.message,
+            e.error_code,
+            {
+                **e.details,
+                "request_id": request_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+    except Exception as e:
+        logger.error(f"[{request_id}] Unexpected error during confirmation: {str(e)}", exc_info=True)
+        raise CheckoutError(
+            "An unexpected error occurred during the confirmation process",
             "INTERNAL_ERROR",
             {
                 "request_id": request_id,

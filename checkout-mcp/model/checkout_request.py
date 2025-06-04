@@ -1,10 +1,13 @@
 from typing import Optional
 from pydantic import BaseModel
 
-class CheckoutRequest(BaseModel):
+class ReserveRequest(BaseModel):
     """
-    Request model for checkout process.
+    Request model for initiating a flight reservation.
     """
-    flight_id: str
-    payment_method_id: str
-    user_confirmation: bool = False 
+    departureAirportCode: str
+    destinationAirportCode: str
+    departureDate: str
+    arrivalDate: str
+    numberOfPassengers: int
+    paymentMethod: str 

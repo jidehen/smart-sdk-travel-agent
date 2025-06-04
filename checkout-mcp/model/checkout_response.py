@@ -1,6 +1,14 @@
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from pydantic import BaseModel
+
+class ReserveResponse(BaseModel):
+    """
+    Response model for a flight reservation initiation.
+    """
+    reservationId: str
+    reservationStatus: str
+    message: Optional[str] = None
 
 class CheckoutResponse(BaseModel):
     """

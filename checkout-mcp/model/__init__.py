@@ -1,4 +1,5 @@
-from .checkout_request import CheckoutRequest
-from .checkout_response import CheckoutResponse
+from .checkout_request import ReserveRequest
+from .checkout_response import ReserveResponse, CheckoutResponse
+from .confirm_request import ConfirmRequest
 
-__all__ = ['CheckoutRequest', 'CheckoutResponse'] 
+__all__ = ['ReserveRequest', 'ReserveResponse', 'ConfirmRequest', 'CheckoutResponse'] 
