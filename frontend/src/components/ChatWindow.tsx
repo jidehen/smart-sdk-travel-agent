@@ -73,87 +73,82 @@ const ChatWindow: React.FC = () => {
                 console.log('Received message from server:', event.data);
                 if (isMounted.current) {
                     const messageText = event.data;
+                    let isCardMessage = false; // Flag to indicate if the message is a card list
 
-                    // Attempt to parse plain text card list format first
-                    const cardListRegex = /\d+\. (.*?)\n - Type: (.*?)\n - Last 4 Digits: (.*?)\n - Nickname: (.*?)(?:\n|$)/g;
-                    let match;
-                    const parsedCards: CardData[] = [];
-                    let index = 0; // Use index to generate a simple unique id for plain text cards
+                    // Attempt to parse the specific plain text card list format
+                    // This regex captures the full structure including intro and outro
+                    const fullCardListRegex = /User\d+ has the following available cards:\n\n((?:\d+\. .*?\n - Type: .*?\n - Last 4 Digits: .*?\n - Nickname: .*?\n\n)+)if\nyou need more information about these cards or assistance with anything else, just let me know!/s;
+                    const fullMatch = messageText.match(fullCardListRegex);
 
-                    // Find all card entries in the text message
-                    while ((match = cardListRegex.exec(messageText)) !== null) {
-                        const brand = match[1].trim();
-                        const type = match[2].trim();
-                        const last4 = match[3].trim();
-                        const nickname = match[4].trim();
-                        
-                        parsedCards.push({
-                            card_id: `temp-${index}`, // Generate a temporary id
-                            brand,
-                            type,
-                            last4,
-                            nickname,
-                        });
-                        index++;
-                    }
+                    if (fullMatch && fullMatch[1]) {
+                        // If the full card list structure is matched
+                        isCardMessage = true;
+                        const cardEntriesText = fullMatch[1];
+                        const cardEntryRegex = /\d+\. (.*?)\n - Type: (.*?)\n - Last 4 Digits: (.*?)\n - Nickname: (.*?)(?:\n|$)/g;
+                        let cardMatch;
+                        const parsedCards: CardData[] = [];
+                        let index = 0;
 
-                    if (parsedCards.length > 0) {
-                        // If plain text card list found and parsed successfully
+                        // Reset lastIndex before executing the regex in a loop
+                        cardEntryRegex.lastIndex = 0;
+                        while ((cardMatch = cardEntryRegex.exec(cardEntriesText)) !== null) {
+                            const brand = cardMatch[1].trim();
+                            const type = cardMatch[2].trim();
+                            const last4 = cardMatch[3].trim();
+                            const nickname = cardMatch[4].trim();
+                            
+                            parsedCards.push({
+                                card_id: `temp-${index}`,
+                                brand,
+                                type,
+                                last4,
+                                nickname,
+                            });
+                            index++;
+                        }
                         setAvailableCards(parsedCards);
-                        // Add a simple text message indicating cards are displayed
-                        setMessages(prev => [...prev, { 
-                            text: "Here are your available payment methods:", 
-                            isUser: false 
-                        }]);
                     } else {
-                        // If not the plain text card list, try processing as regular message/JSON (fallback)
+                        // If not the plain text card list, try parsing as JSON (future compatibility)
                         try {
                             const data = JSON.parse(messageText);
                             
-                            // Check if this is a structured payment methods response (future compatibility)
+                            // Check if this is a structured payment methods response
                             if (data.payment_methods && Array.isArray(data.payment_methods)) {
-                                // Map the mock data structure to the CardData interface
-                                const structuredCards: CardData[] = data.payment_methods.map((card: any) => ({
-                                    card_id: card.card_id,
-                                    brand: card.brand,
-                                    type: card.type,
-                                    last4: card.last4,
-                                    nickname: card.nickname,
-                                }));
-                                setAvailableCards(structuredCards);
-                                setMessages(prev => [...prev, { 
-                                    text: "Here are your available payment methods:", 
-                                    isUser: false 
-                                }]);
-                            } else {
-                                 // If not a recognized structured format, add as a regular text message
-                                const contentRegex = /content='([^']+)'|content="([^"]+)"/g;
-                                let contentMatch;
-                                const contents = new Set<string>();
-
-                                while ((contentMatch = contentRegex.exec(messageText)) !== null) {
-                                    contents.add(contentMatch[1] || contentMatch[2]);
-                                }
-
-                                if (contents.size > 0) {
-                                    contents.forEach((content) => {
-                                        setMessages((prev) => {
-                                            if (!prev.some((msg) => msg.text === content)) {
-                                                return [...prev, { text: content, isUser: false }];
-                                            }
-                                            return prev;
-                                        });
-                                    });
-                                } else {
-                                    // Fallback: add the raw message if no content found
-                                    setMessages(prev => [...prev, { text: messageText, isUser: false }]);
-                                }
+                                 // The mock data structure already matches CardData
+                                setAvailableCards(data.payment_methods);
+                                isCardMessage = true; // Mark as a card message
                             }
                         } catch (error) {
-                            // If JSON parsing fails, and not the plain text card list, treat as plain text
-                             console.error('Error parsing message as JSON or other structured format:', error);
-                            setMessages(prev => [...prev, { text: messageText, isUser: false }]);
+                             // JSON parsing failed, not a JSON message
+                             console.log('Message is not JSON, trying other formats...', error);
                         }
+                    }
+
+                    // If the message was not a card list, add it as a regular text message
+                    if (!isCardMessage) {
+                         const contentRegex = /content='([^']+)'|content="([^"]+)"/g;
+                         let contentMatch;
+                         const contents = new Set<string>();
+
+                        // Reset lastIndex before executing the regex in a loop
+                        contentRegex.lastIndex = 0;
+                         while ((contentMatch = contentRegex.exec(messageText)) !== null) {
+                             contents.add(contentMatch[1] || contentMatch[2]);
+                         }
+
+                         if (contents.size > 0) {
+                             contents.forEach((content) => {
+                                 setMessages((prev) => {
+                                     if (!prev.some((msg) => msg.text === content)) {
+                                         return [...prev, { text: content, isUser: false }];
+                                     }
+                                     return prev;
+                                 });
+                             });
+                         } else {
+                             // Fallback: add the raw message if no recognized format
+                             setMessages(prev => [...prev, { text: messageText, isUser: false }]);
+                         }
                     }
                 }
             };
@@ -228,9 +223,12 @@ const ChatWindow: React.FC = () => {
 
     return (
         <ChatContainer>
-            <MessageList messages={messages} />
-            {/* Render the CardList component if availableCards is not empty */}
-            {availableCards.length > 0 ? <CardList cards={availableCards} /> : null}
+            {/* Render the CardList component if availableCards is not empty, otherwise render messages */}
+            {availableCards.length > 0 ? (
+                <CardList cards={availableCards} />
+            ) : (
+                <MessageList messages={messages} />
+            )}
             <MessageInput onSendMessage={handleSendMessage} />
         </ChatContainer>
     );
