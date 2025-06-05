@@ -75,7 +75,7 @@ const ChatWindow: React.FC = () => {
                     const messageText = event.data;
                     let isCardMessage = false; // Flag to indicate if the message is a card list
 
-                    // Attempt to parse the specific plain text card list format
+                    // Attempt to parse the specific plain text card list format first
                     // This regex captures the full structure including intro and outro
                     const fullCardListRegex = /User\d+ has the following available cards:\n\n((?:\d+\. .*?\n - Type: .*?\n - Last 4 Digits: .*?\n - Nickname: .*?\n\n)+)if\nyou need more information about these cards or assistance with anything else, just let me know!/s;
                     const fullMatch = messageText.match(fullCardListRegex);
