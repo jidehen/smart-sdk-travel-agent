@@ -57,11 +57,46 @@ const ChatWindow: React.FC = () => {
                 }
             };
 
+            // ws.onmessage = (event) => {
+            //     console.log('Received message from server:', event.data);
+            //     if (isMounted.current) {
+            //         // Add assistant's message to the chat
+            //         setMessages(prev => [...prev, { text: event.data, isUser: false }]);
+            //     }
+            // };
+
             ws.onmessage = (event) => {
                 console.log('Received message from server:', event.data);
                 if (isMounted.current) {
-                    // Add assistant's message to the chat
-                    setMessages(prev => [...prev, { text: event.data, isUser: false }]);
+                    try {
+                        // Regular expression to match content in different formats
+                        const contentRegex = /content='([^']+)'|content="([^"]+)"/g;
+                        let match;
+                        const contents = new Set<string>(); // Use a Set to avoid duplicate messages
+
+                        // Find all matches for content in the message
+                        while ((match = contentRegex.exec(event.data)) !== null) {
+                            // Add the matched content to the contents set
+                            contents.add(match[1] || match[2]);
+                        }
+
+                        if (contents.size > 0) {
+                            // Add each unique extracted content to the chat
+                            contents.forEach((content) => {
+                                // Check if the message is already in the chat to avoid duplicates
+                                setMessages((prev) => {
+                                    if (!prev.some((msg) => msg.text === content)) {
+                                        return [...prev, { text: content as string, isUser: false }];
+                                    }
+                                    return prev;
+                                });
+                            });
+                        } else {
+                            console.error('No content found in message:', event.data);
+                        }
+                    } catch (error) {
+                        console.error('Error processing message:', error);
+                    }
                 }
             };
 
