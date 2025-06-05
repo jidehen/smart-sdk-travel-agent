@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import Message from './Message';
 
@@ -10,38 +10,36 @@ interface ChatMessage {
 
 // Define the props interface for MessageList
 interface MessageListProps {
-    // Array of messages to display
-    messages: ChatMessage[];
+    messages: ChatMessage[]; // Array of messages to display
 }
 
 // Styled component for the message list container
 const MessageListContainer = styled.div`
-    // Use flexbox for layout
     display: flex;
     flex-direction: column;
-    // Add padding around the messages
     padding: 20px;
-    // Allow scrolling when content overflows
     overflow-y: auto;
-    // Set height to fill available space
     height: 100%;
-    // Add some spacing between messages
     gap: 10px;
 `;
 
-// The MessageList component
 const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+    const messageListRef = useRef<HTMLDivElement | null>(null);
+
+    // Auto-scroll to the bottom of the message list when new messages are added
+    useEffect(() => {
+        if (messageListRef.current) {
+            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+    }, [messages]);
+
     return (
-        <MessageListContainer>
+        <MessageListContainer ref={messageListRef}>
             {messages.map((message, index) => (
-                <Message
-                    key={index}
-                    text={message.text}
-                    isUser={message.isUser}
-                />
+                <Message key={index} text={message.text} isUser={message.isUser} />
             ))}
         </MessageListContainer>
     );
 };
 
-export default MessageList; 
+export default MessageList;
