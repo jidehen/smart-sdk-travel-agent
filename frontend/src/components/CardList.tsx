@@ -3,10 +3,11 @@ import styled from 'styled-components';
 import Card from './Card'; // Assuming Card.tsx is in the same directory
 
 interface CardData {
-    id?: string; // Optional ID if available or derived
-    name: string;
+    card_id: string;
     type: string;
-    lastFour: string;
+    brand: string;
+    last4: string;
+    nickname: string;
 }
 
 interface CardListProps {
@@ -39,11 +40,11 @@ const CardList: React.FC<CardListProps> = ({ cards }) => {
         <CardListContainer>
             {cards.map((card) => (
                 <Card
-                    key={card.id || card.lastFour} // Use id or lastFour as key
-                    name={card.name}
+                    key={card.card_id}
+                    name={card.nickname || card.brand}
                     type={card.type}
-                    lastFour={card.lastFour}
-                    imageSrc={getCardImageSrc(card.name)} // Get image path (now fixed)
+                    lastFour={card.last4}
+                    imageSrc={getCardImageSrc(card.brand)}
                 />
             ))}
         </CardListContainer>
